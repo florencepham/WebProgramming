@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+	<title>My News Feed</title>
+	<!--<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>-->
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+	<script>
+		$(document).ready(function(){
+			if (localStorage.length != undefined){
+				var localStorageArray = new Array();
+			}
+			for (i = 0; i < localStorage.length; i++) {
+				localStorageArray[i] = localStorage.key(i) + ": " +localStorage.getItem(localStorage.key(i));
+			}
+			for (j = 0; j < localStorageArray.length; j++)
+				$("#news").prepend('<p>' + localStorageArray[j] + '</p>');
+		
+			$("#msg").keypress(function(event) {
+				if (event.which == 13) {
+					var time = currentTime();
+					var output = currentTime() + " " + $(this).val();
+					$('div').prepend('<p>' + output + '</p>');
+					localStorage.setItem(time, $(this).val());
+				}
+			});
+			function currentTime() {
+				var date = new Date();
+				var strTime = ' - ' + date;
+				return strTime;
+			}
+
+		});
+	</script>
+</head>
+
+<body>
+	<h1>My News Feed</h1>
+	<h3>My news update: <input type="text" id="msg" name="msg" size="30" /></h3>
+	<div id="news">News...</div>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<title>Harry Porter</title>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+
+<script src="http://maps.google.com/maps/api/js?sensor=true"></script>
+
+<script type="https://infinite-citadel-7444.herokuapp.com/sendLocation"></script>
+
+<link rel="stylesheet" href="mmap.css" />
+
+<script>
+var map;
+var landmark;
+var marker;
+var request = new XMLHttpRequest();
+var myLat = 0;
+var myLng = 0;
+var me = new google.maps.LatLng(myLat, myLng);
+var mapOptions = {
+	zoom: 15,
+	center: me,
+	mapTypeId: google.maps.MapTypeId.ROADMAP
+};
+var infowindow = new google.maps.InfoWindow();
+var locationData;
+var parsed;
+//initialize the map
+function initialize() 
+{
+	map = new google.maps.Map(document.getElementById("map_canvas"), 
+		mapOptions);
+	findMe();
+}
+google.maps.event.addDomListener(window, 'load', initialize);
+//look for current location, run the map with the current location
+function findMe()
+{ 
+	elem = document.getElementById("map_canvas");
+	if (navigator.geolocation) { 
+		navigator.geolocation.getCurrentPosition(function(position) {
+			myLat = position.coords.latitude; 	
+			myLng = position.coords.longitude;
+			renderMap();	
+		});
+	}
+}
+//render the map
+function renderMap()
+{
+	//mark your current location and move the map there
+	me = new google.maps.LatLng(myLat, myLng);
+	//contatenate string to send
+	myInformation = "login=LeeJordan&lat=" + myLat + "&lng=" + myLng;
+	map.panTo(me);
+	markMe(myLat, myLng);
+	//XMLHttp request
+	xhr = new XMLHttpRequest();
+	xhr.open("POST", "https://infinite-citadel-7444.herokuapp.com/sendLocation", true);
+	xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+	xhr.onreadystatechange = function() {
+		if (xhr.readyState == 4 && xhr.status == 200) {
+			parsed = JSON.parse(xhr.responseText);	//parse the text 
+			//Created a landmark for each student
+			for (i = 0; i < parsed['students'].length; i++)
+				studentsMarker(parsed['students'][i]);
+			//Created a landmark for each character
+			for (j = 0; j < parsed['characters'].length; j++)
+				charactersMarker(parsed['characters'][j]);
+		}
+	};
+	xhr.send(myInformation);
+}
+//created a landmark for each student's location
+function studentsMarker(aStudent)
+{
+	//make student info box
+	var studentInfo = "<p><b>Login: </b>" + aStudent['login'] + "</p>" +
+						"<p><b>Latitude: </b>" + aStudent['lat'] + "</p>" + 
+						"<p><b>Longitude: </b>" + aStudent['lng'] + "</p>" +
+						"<p><b>Timestamp: </b>" + aStudent['created_at'] + "</p>";
+	//Make landmark
+	var landmark = new google.maps.LatLng (aStudent['lat'], aStudent['lng']);
+	var marker = new google.maps.Marker({
+		position : landmark,
+		map : map,
+		title: studentInfo
+	});
+	//make info window
+	google.maps.event.addListener(marker, 'click', function() {
+		infowindow.close()
+		infowindow.setContent(marker.title);
+		infowindow.open(map,this);
+	});
+}
+function charactersMarker(aCharacter)
+{
+	if (typeof aCharacter['loc'] != 'undefined')
+	{
+		var landmark = new google.maps.LatLng (aCharacter['loc']['latitude'], 
+												aCharacter['loc']['longitude']);
+		//calculate the distance to me
+		var distance = calculateDistance(myLat, myLng, 
+			aCharacter['loc']['latitude'], 
+			aCharacter['loc']['longitude']);
+		//Make characterInfo Box;
+		var characterInfo = "<p><b>Name: </b>" + aCharacter['name'] + "</p>" +
+						"<p><b>Latitude: </b>" + aCharacter['loc']['latitude'] + "</p>" + 
+						"<p><b>Longitude: </b>" + aCharacter['loc']['longitude'] + "</p>" +
+						"<p><b>Note: </b>" + aCharacter['loc']['note'] + "</p>" +
+						"<p><b>Distance to you: </b>" + distance + " miles</p>";				
+		//Make marker
+		var imageName = aCharacter['name'] + ".png";
+		var marker = new google.maps.Marker({
+			position : landmark,
+			map : map,
+			icon : imageName,
+			title : aCharacter['name']
+		});
+		//Make Polyline
+		var myTrip = [new google.maps.LatLng(myLat, myLng), 
+		 				new google.maps.LatLng(aCharacter['loc']['latitude']
+		 									, aCharacter['loc']['longitude']) ];
+		var flightPath = new google.maps.Polyline({
+			path: myTrip, 
+			strokeColor:"#0000FF",
+			strokeOpacity: 0.8,
+			strokeWeight: 2
+		});
+		flightPath.setMap(map);
+		//Make infowindow
+		google.maps.event.addListener(marker, 'click', function() {
+			infowindow.close();
+			infowindow.setContent(characterInfo);
+			infowindow.open(map,this);
+		});
+	}
+}
+function markMe(lat, lng)
+{				
+	var myInfo = "<p><b>LeeJordan: Me! </b></p>" +
+						"<p><b>Latitude: </b>" + lat + "</p>" + 
+						"<p><b>Longitude: </b>" + lng + "</p>";
+	landmark = new google.maps.LatLng (lat, lng);
+	marker = new google.maps.Marker({ 
+		position:landmark, 
+		icon: "leejordan.png",
+		title: "Me!"
+	});
+	marker.setMap(map);
+	google.maps.event.addListener(marker, 'click', function() {
+		infowindow.close();
+		infowindow.setContent(myInfo);
+		infowindow.open(map, this);
+	});
+}
+Number.prototype.toRadians = function() {
+   return this * Math.PI / 180;
+}
+//calculating the distance from two points
+//taken from http://stackoverflow.com/questions/14560999/using-the-haversine-formula-in-javascript
+function calculateDistance(myLat, myLng, otherLat, otherLng)
+{
+	var R = 6371; // km
+	var φ1 = myLat.toRadians();
+	var φ2 = otherLat.toRadians();
+	var Δφ = (otherLat-myLat).toRadians();
+	var Δλ = (otherLng-myLng).toRadians();
+	var a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+	    Math.cos(φ1) * Math.cos(φ2) *
+	    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+	var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+	var d = R * c; 
+	return d;
+}
+</script>
+</head>
+
+
+<body onload="initialize()">
+	<div id="map_canvas" style="width:100%; height:100%"></div> 
+</body>
+
+</html>
